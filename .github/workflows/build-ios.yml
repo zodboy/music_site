@@ -36,7 +36,7 @@ jobs:
 
     env:
       SCHEME: App
-      WORKSPACE: ios/App/App.xcworkspace
+      PROJECT: ios/App/App.xcodeproj
       ARCHIVE_PATH: build/App.xcarchive
       IPA_PATH: build/App-unsigned.ipa
 
@@ -92,8 +92,13 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
+          # Also normalize Windows backslashes in Package.swift (generated on Windows dev machine)
+          sed -i '' 's|\\|/|g' ios/App/CapApp-SPM/Package.swift || true
+          echo "===== Package.swift after sed ====="
+          cat ios/App/CapApp-SPM/Package.swift
+          echo "==================================="
           xcodebuild archive \
-            -workspace ${{ env.WORKSPACE }} \
+            -project ${{ env.PROJECT }} \
             -scheme ${{ env.SCHEME }} \
             -configuration Release \
             -archivePath ${{ env.ARCHIVE_PATH }} \
