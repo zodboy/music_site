@@ -23,10 +23,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
-    "@capacitor/status-bar": "^8.0.2",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-avatar": "^1.2.0",
     "@radix-ui/react-dialog": "^1.1.17",

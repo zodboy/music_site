@@ -11,12 +11,6 @@ const config: CapacitorConfig = {
     // Disable native navigation overrides; SPA handles routing.
     limitsNavigationsToAppBoundDomains: false,
   },
-  plugins: {
-    StatusBar: {
-      style: "DARK",
-      backgroundColor: "#0A0A0F",
-    },
-  },
 };
 
 export default config;
