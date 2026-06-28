@@ -57,8 +57,30 @@ jobs:
       - name: Build web assets (mobile mode)
         run: npm run build:mobile
 
-      - name: Sync to iOS project
-        run: npx cap copy ios && npx cap sync ios
+      - name: Select Xcode (before cap sync)
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+          xcodebuild -showBuildSettings 2>&1 | head -5
+
+      - name: Sync to iOS project (verbose)
+        run: |
+          mkdir -p build
+          set -x
+          npx cap copy ios 2>&1 | tee build/cap-copy.log
+          npx cap sync ios --verbose 2>&1 | tee build/cap-sync.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload cap-sync log (on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cap-sync-log
+          path: |
+            build/cap-copy.log
+            build/cap-sync.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Override MARKETING_VERSION (if provided)
         if: ${{ github.event.inputs.version != '' }}
@@ -66,14 +88,10 @@ jobs:
           sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" \
             ios/App/App.xcodeproj/project.pbxproj
 
-      - name: Select Xcode
-        run: |
-          sudo xcode-select -s /Applications/Xcode.app
-          xcodebuild -version
-
       - name: Archive WITHOUT signing
         run: |
           mkdir -p build
+          set -o pipefail
           xcodebuild archive \
             -workspace ${{ env.WORKSPACE }} \
             -scheme ${{ env.SCHEME }} \
@@ -88,7 +106,7 @@ jobs:
             DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_ENTITLEMENTS="" \
-            | tee build/xcodebuild-archive.log
+            2>&1 | tee build/xcodebuild-archive.log
 
       - name: Package unsigned .ipa
         run: |
