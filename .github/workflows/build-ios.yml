@@ -63,12 +63,12 @@ jobs:
           xcodebuild -version
           xcodebuild -showBuildSettings 2>&1 | head -5
 
-      - name: Sync to iOS project (verbose)
+      - name: Sync to iOS project
         run: |
           mkdir -p build
           set -x
           npx cap copy ios 2>&1 | tee build/cap-copy.log
-          npx cap sync ios --verbose 2>&1 | tee build/cap-sync.log
+          npx cap sync ios 2>&1 | tee build/cap-sync.log
           exit ${PIPESTATUS[0]}
 
       - name: Upload cap-sync log (on failure)
