@@ -88,6 +88,15 @@ jobs:
           sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" \
             ios/App/App.xcodeproj/project.pbxproj
 
+      - name: List schemes & SPM packages
+        run: |
+          echo "===== Available schemes ====="
+          xcodebuild -list -project ${{ env.PROJECT }} 2>&1 | tee build/xcodebuild-list.log
+          echo "============================"
+          echo "===== Package.swift content ====="
+          cat ios/App/CapApp-SPM/Package.swift
+          echo "=================================="
+
       - name: Archive WITHOUT signing
         run: |
           mkdir -p build
@@ -112,6 +121,26 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_ENTITLEMENTS="" \
             2>&1 | tee build/xcodebuild-archive.log
+
+      - name: Extract build errors (diagnostic)
+        if: always()
+        run: |
+          if [ -f build/xcodebuild-archive.log ]; then
+            echo "===== Last 60 lines of xcodebuild log ====="
+            tail -60 build/xcodebuild-archive.log
+            echo "============================================"
+            echo "===== Lines containing 'error' (case-insensitive) ====="
+            grep -i "error" build/xcodebuild-archive.log | tail -20 || echo "(no error lines found)"
+            echo "======================================================"
+            # Emit as GitHub Actions annotations (visible via public annotations API)
+            grep -i "error" build/xcodebuild-archive.log | tail -10 | while IFS= read -r line; do
+              # Strip ANSI color codes and truncate to 250 chars (GitHub annotation limit)
+              clean=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-250)
+              echo "::error::$clean"
+            done
+          else
+            echo "No xcodebuild-archive.log found"
+          fi
 
       - name: Package unsigned .ipa
         run: |
