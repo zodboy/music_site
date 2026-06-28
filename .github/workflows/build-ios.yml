@@ -1,0 +1,138 @@
+name: Build iOS (unsigned)
+
+# Builds an UNSIGNED .ipa for sideloading via AltStore / SideStore.
+# The .ipa is unsigned on purpose — AltStore/SideStore will sign it
+# on-device using the user's personal Apple ID.
+#
+# Triggers:
+#   - push to main (only when music_site or this workflow changes)
+#   - manual dispatch (with optional version bump)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "music_site/src/**"
+      - "music_site/api/**"
+      - "music_site/.env.mobile"
+      - "music_site/capacitor.config.ts"
+      - "music_site/ios/**"
+      - ".github/workflows/build-ios.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "MARKETING_VERSION override (e.g. 0.2.0)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    env:
+      WORKDIR: music_site
+      SCHEME: App
+      WORKSPACE: ios/App/App.xcworkspace
+      ARCHIVE_PATH: build/App.xcarchive
+      IPA_PATH: build/App-unsigned.ipa
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ${{ env.WORKDIR }}/package-lock.json
+
+      - name: Install deps
+        working-directory: ${{ env.WORKDIR }}
+        run: npm ci || npm install
+
+      - name: Build web assets (mobile mode)
+        working-directory: ${{ env.WORKDIR }}
+        run: npm run build:mobile
+
+      - name: Sync to iOS project
+        working-directory: ${{ env.WORKDIR }}
+        run: npx cap copy ios && npx cap sync ios
+
+      - name: Override MARKETING_VERSION (if provided)
+        if: ${{ github.event.inputs.version != '' }}
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" \
+            ios/App/App.xcodeproj/project.pbxproj
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Archive WITHOUT signing
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          mkdir -p build
+          xcodebuild archive \
+            -workspace ${{ env.WORKSPACE }} \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Release \
+            -archivePath ${{ env.ARCHIVE_PATH }} \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE="" \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_ENTITLEMENTS="" \
+            | tee build/xcodebuild-archive.log
+
+      - name: Package unsigned .ipa
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          # Locate .app inside .xcarchive
+          APP_DIR=$(find ${{ env.ARCHIVE_PATH }}/Products/Applications -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "ERROR: No .app found in archive"
+            exit 1
+          fi
+          echo "Found app: $APP_DIR"
+
+          # Build Payload/ directory and copy .app in
+          PAYLOAD_DIR=build/Payload
+          rm -rf "$PAYLOAD_DIR"
+          mkdir -p "$PAYLOAD_DIR"
+          cp -R "$APP_DIR" "$PAYLOAD_DIR/"
+
+          # Zip as .ipa (zip -r -X preserves structure)
+          rm -f ${{ env.IPA_PATH }}
+          cd build
+          zip -r -X App-unsigned.ipa Payload
+          cd ..
+
+          ls -lh ${{ env.IPA_PATH }}
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicSite-ios-unsigned
+          path: ${{ env.WORKDIR }}/${{ env.IPA_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload xcodebuild log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-archive-log
+          path: ${{ env.WORKDIR }}/build/xcodebuild-archive.log
+          if-no-files-found: warn
+          retention-days: 7

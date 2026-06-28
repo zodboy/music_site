@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink-base text-fg-primary;
+  font-family: "Noto Sans SC", "IBM Plex Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 自定义滚动条（WebKit） */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #26262F; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a45; }
+
+/* 隐藏横向滚动条（搜索结果横向滑动） */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* range 滑块美化（音量/进度条 fallback） */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  background: #26262F;
+  height: 4px;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #E8B339;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  margin-top: -4px;
+}

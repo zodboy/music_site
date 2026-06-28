@@ -1,0 +1,106 @@
+// 音乐站数据库 schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String
+  role         String    @default("user") // user | admin
+  createdAt    DateTime  @default(now())
+  playlists    Playlist[]
+  favorites    Favorite[]
+  history      PlayHistory[]
+  imports      ImportLog[]
+}
+
+model Playlist {
+  id          Int             @id @default(autoincrement())
+  userId      Int
+  name        String
+  description String?
+  cover       String?
+  source      String          @default("custom") // custom | netease | qq | kugou
+  sourceId    String?
+  isPublic    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks      PlaylistTrack[]
+}
+
+model Track {
+  id          Int             @id @default(autoincrement())
+  provider    String          // netease | qq | kugou
+  providerId  String
+  name        String
+  artist      String          @default("")
+  album       String          @default("")
+  cover       String?
+  durationMs Int             @default(0)
+  urlCache    String?         // 歌曲播放 URL（会过期，需要时刷新）
+  urlExpireAt DateTime?
+  lyricCache  String?         // 歌词文本（lrc 格式）
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  playlists   PlaylistTrack[]
+  favorites   Favorite[]
+  history     PlayHistory[]
+
+  @@unique([provider, providerId])
+}
+
+model PlaylistTrack {
+  id         Int      @id @default(autoincrement())
+  playlistId Int
+  trackId    Int
+  sort       Int      @default(0)
+  addedAt    DateTime @default(now())
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  trackId   Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId])
+}
+
+model PlayHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  trackId   Int
+  playedAt  DateTime @default(now())
+  progressMs Int     @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([userId, playedAt])
+}
+
+model ImportLog {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  source           String   // netease | qq | kugou
+  sourcePlaylistId String
+  targetPlaylistId Int?
+  trackCount       Int      @default(0)
+  status           String   @default("running") // running | success | failed
+  detail           String?
+  createdAt        DateTime @default(now())
+  endedAt          DateTime?
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

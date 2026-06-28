@@ -1,0 +1,6 @@
+{
+  "exec": "tsx api/index.ts",
+  "ext": "ts,tsx",
+  "watch": ["api", "prisma"],
+  "ignore": ["src", "dist"]
+}

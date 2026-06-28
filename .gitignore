@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+.env.prod
+*.log
+.DS_Store
+prisma/*.db
+prisma/*.db-journal
+prisma/migrations/dev.db*
+public/cache/*
+*.tsbuildinfo
+.vscode/
+.idea/
