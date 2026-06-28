@@ -12,11 +12,6 @@ const config: CapacitorConfig = {
     limitsNavigationsToAppBoundDomains: false,
   },
   plugins: {
-    SplashScreen: {
-      launchShowDuration: 1200,
-      backgroundColor: "#0A0A0F",
-      showSpinner: false,
-    },
     StatusBar: {
       style: "DARK",
       backgroundColor: "#0A0A0F",
