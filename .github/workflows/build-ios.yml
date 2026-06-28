@@ -4,19 +4,20 @@ name: Build iOS (unsigned)
 # The .ipa is unsigned on purpose — AltStore/SideStore will sign it
 # on-device using the user's personal Apple ID.
 #
-# Triggers:
-#   - push to main (only when music_site or this workflow changes)
-#   - manual dispatch (with optional version bump)
+# Repo layout: this repo IS the music_site project (no nested music_site/ folder).
+# All paths below are relative to the repo root.
 
 on:
   push:
     branches: [main]
     paths:
-      - "music_site/src/**"
-      - "music_site/api/**"
-      - "music_site/.env.mobile"
-      - "music_site/capacitor.config.ts"
-      - "music_site/ios/**"
+      - "src/**"
+      - "api/**"
+      - ".env.mobile"
+      - "capacitor.config.ts"
+      - "ios/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/build-ios.yml"
   workflow_dispatch:
     inputs:
@@ -34,7 +35,6 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKDIR: music_site
       SCHEME: App
       WORKSPACE: ios/App/App.xcworkspace
       ARCHIVE_PATH: build/App.xcarchive
@@ -49,23 +49,19 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: ${{ env.WORKDIR }}/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install deps
-        working-directory: ${{ env.WORKDIR }}
         run: npm ci || npm install
 
       - name: Build web assets (mobile mode)
-        working-directory: ${{ env.WORKDIR }}
         run: npm run build:mobile
 
       - name: Sync to iOS project
-        working-directory: ${{ env.WORKDIR }}
         run: npx cap copy ios && npx cap sync ios
 
       - name: Override MARKETING_VERSION (if provided)
         if: ${{ github.event.inputs.version != '' }}
-        working-directory: ${{ env.WORKDIR }}
         run: |
           sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" \
             ios/App/App.xcodeproj/project.pbxproj
@@ -76,7 +72,6 @@ jobs:
           xcodebuild -version
 
       - name: Archive WITHOUT signing
-        working-directory: ${{ env.WORKDIR }}
         run: |
           mkdir -p build
           xcodebuild archive \
@@ -96,7 +91,6 @@ jobs:
             | tee build/xcodebuild-archive.log
 
       - name: Package unsigned .ipa
-        working-directory: ${{ env.WORKDIR }}
         run: |
           # Locate .app inside .xcarchive
           APP_DIR=$(find ${{ env.ARCHIVE_PATH }}/Products/Applications -maxdepth 1 -name "*.app" | head -1)
@@ -124,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MusicSite-ios-unsigned
-          path: ${{ env.WORKDIR }}/${{ env.IPA_PATH }}
+          path: ${{ env.IPA_PATH }}
           if-no-files-found: error
           retention-days: 30
 
@@ -133,6 +127,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-archive-log
-          path: ${{ env.WORKDIR }}/build/xcodebuild-archive.log
+          path: build/xcodebuild-archive.log
           if-no-files-found: warn
           retention-days: 7
